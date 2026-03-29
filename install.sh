@@ -308,11 +308,21 @@ EOF
     print_success ".env created"
 
     # ── Caddyfile ─────────────────────────────────────────
+    # ── Caddyfile ─────────────────────────────────────────
     cat > Caddyfile << EOF
 $VAANEE_DOMAIN {
     tls $ADMIN_EMAIL
 
-    # API routes → backend
+    # Next.js API routes → frontend
+    handle /api/login {
+        reverse_proxy vaanee-frontend:8080
+    }
+
+    handle /api/auth/* {
+        reverse_proxy vaanee-frontend:8080
+    }
+
+    # Backend API routes
     handle /api/* {
         reverse_proxy vaanee-backend:8080
     }
