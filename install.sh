@@ -506,6 +506,15 @@ run_migrations() {
     fi
 
     if command -v psql &>/dev/null; then
+        print_step "Validating PostgreSQL pgvector support"
+        if psql "$DATABASE_URL" -tAc "SELECT 1 FROM pg_available_extensions WHERE name='vector';" | grep -q "1"; then
+            print_success "pgvector extension is available"
+        else
+            print_error "pgvector extension is not available on this PostgreSQL instance."
+            echo "  Please install/enable pgvector on your database server, then rerun installer."
+            exit 1
+        fi
+
         if psql "$DATABASE_URL" -f "$VAANEE_DIR/migrate.sql" -v ON_ERROR_STOP=1; then
             print_success "Database migrations completed"
         else
@@ -518,89 +527,6 @@ run_migrations() {
         echo "  Run migrations manually before starting Vaanee:"
         echo "    psql \"$DATABASE_URL\" -f $VAANEE_DIR/migrate.sql"
         echo ""
-    fi
-}
-
-# ============================================================
-# 7c. Bootstrap — seed org and user from Inbotiq platform
-# ============================================================
-bootstrap_db() {
-    print_step "Fetching your account data from Inbotiq"
-
-    BOOTSTRAP=$(curl -s -H "Authorization: Bearer $VAANEE_API_KEY" \
-        "$INBOTIQ_API/vaanee/bootstrap" --max-time 15 2>/dev/null) || true
-
-    HTTP_CHECK=$(echo "$BOOTSTRAP" | grep -c '"organization"' 2>/dev/null || echo "0")
-    if [ -z "$BOOTSTRAP" ] || [ "$HTTP_CHECK" -eq 0 ]; then
-        print_warn "Could not fetch account data. Skipping bootstrap."
-        print_warn "Login with same credentials you use on app.inbotiq.ai"
-        return
-    fi
-
-    ORG_ID=$(echo "$BOOTSTRAP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-    ORG_NAME=$(echo "$BOOTSTRAP" | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4)
-    USER_ID=$(echo "$BOOTSTRAP" | grep -o '"id":"[^"]*"' | sed -n '2p' | cut -d'"' -f4)
-    USER_EMAIL=$(echo "$BOOTSTRAP" | grep -o '"email":"[^"]*"' | cut -d'"' -f4)
-    USER_HASH=$(echo "$BOOTSTRAP" | grep -o '"password_hash":"[^"]*"' | cut -d'"' -f4)
-    USER_FIRST=$(echo "$BOOTSTRAP" | grep -o '"first_name":"[^"]*"' | cut -d'"' -f4)
-    USER_LAST=$(echo "$BOOTSTRAP" | grep -o '"last_name":"[^"]*"' | cut -d'"' -f4)
-
-    if [ -z "$ORG_ID" ] || [ -z "$USER_EMAIL" ]; then
-        print_warn "Could not parse account data. Skipping bootstrap."
-        return
-    fi
-
-    if command -v psql &>/dev/null; then
-        if ! psql "$DATABASE_URL" -v ON_ERROR_STOP=1 << SQLEOF
-INSERT INTO organizations (id, name, is_active)
-VALUES ('$ORG_ID', '$ORG_NAME', true)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO users (id, organization_id, email, password_hash, first_name, last_name, is_active)
-VALUES ('$USER_ID', '$ORG_ID', '$USER_EMAIL', '$USER_HASH', '$USER_FIRST', '$USER_LAST', true)
-ON CONFLICT (id) DO NOTHING;
-SQLEOF
-        then
-            print_error "Failed to seed organization/user data in database."
-            exit 1
-        fi
-
-        # Seed telephony config if present in bootstrap response
-        TELE_SID=$(echo "$BOOTSTRAP" | grep -o '"exotel_account_sid":"[^"]*"' | cut -d'"' -f4)
-        TELE_KEY=$(echo "$BOOTSTRAP" | grep -o '"exotel_api_key":"[^"]*"' | cut -d'"' -f4)
-        TELE_TOKEN=$(echo "$BOOTSTRAP" | grep -o '"exotel_api_token":"[^"]*"' | cut -d'"' -f4)
-        TELE_SUB=$(echo "$BOOTSTRAP" | grep -o '"exotel_subdomain":"[^"]*"' | cut -d'"' -f4)
-        TELE_APP=$(echo "$BOOTSTRAP" | grep -o '"exotel_app_id":"[^"]*"' | cut -d'"' -f4)
-
-        if [ -n "$TELE_SID" ] && [ -n "$TELE_KEY" ] && [ -n "$TELE_TOKEN" ]; then
-            if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 << SQLEOF
-INSERT INTO organization_caller_ai_config
-  (organization_id, exotel_account_sid, exotel_api_key, exotel_api_token,
-   exotel_subdomain, exotel_app_id, campaign_flow_id, exotel_is_active, telephony_enabled, kyc_status)
-VALUES
-  ('$ORG_ID', '$TELE_SID', '$TELE_KEY', '$TELE_TOKEN',
-   '${TELE_SUB:-api.exotel.com}', '${TELE_APP:-}', '${TELE_APP:-}', true, true, 'approved')
-ON CONFLICT (organization_id) DO UPDATE SET
-  exotel_account_sid = EXCLUDED.exotel_account_sid,
-  exotel_api_key = EXCLUDED.exotel_api_key,
-  exotel_api_token = EXCLUDED.exotel_api_token,
-  exotel_subdomain = EXCLUDED.exotel_subdomain,
-  exotel_app_id = EXCLUDED.exotel_app_id,
-  campaign_flow_id = EXCLUDED.campaign_flow_id,
-  telephony_enabled = true,
-  kyc_status = 'approved',
-  updated_at = NOW();
-SQLEOF
-            then
-                print_success "Telephony config seeded"
-            else
-                print_warn "Telephony config seed failed. You can configure it later from dashboard."
-            fi
-        fi
-
-        print_success "Account seeded — login with: $USER_EMAIL"
-    else
-        print_warn "psql not available — skipping account seed."
     fi
 }
 
@@ -736,7 +662,6 @@ main() {
     generate_secrets
     write_files
     run_migrations
-    bootstrap_db
     pull_images
     start_services
     install_cli
