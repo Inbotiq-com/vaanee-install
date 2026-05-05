@@ -506,8 +506,12 @@ run_migrations() {
     fi
 
     if command -v psql &>/dev/null; then
-        psql "$DATABASE_URL" -f "$VAANEE_DIR/migrate.sql" -v ON_ERROR_STOP=0 2>&1 | grep -E "NOTICE|ERROR|error" || true
-        print_success "Database migrations completed"
+        if psql "$DATABASE_URL" -f "$VAANEE_DIR/migrate.sql" -v ON_ERROR_STOP=1; then
+            print_success "Database migrations completed"
+        else
+            print_error "Database migration failed. Fix SQL errors and rerun installer."
+            exit 1
+        fi
     else
         print_warn "psql not available — skipping auto migration."
         echo ""
@@ -547,7 +551,7 @@ bootstrap_db() {
     fi
 
     if command -v psql &>/dev/null; then
-        psql "$DATABASE_URL" -v ON_ERROR_STOP=0 2>/dev/null << SQLEOF
+        if ! psql "$DATABASE_URL" -v ON_ERROR_STOP=1 << SQLEOF
 INSERT INTO organizations (id, name, is_active)
 VALUES ('$ORG_ID', '$ORG_NAME', true)
 ON CONFLICT (id) DO NOTHING;
@@ -556,6 +560,10 @@ INSERT INTO users (id, organization_id, email, password_hash, first_name, last_n
 VALUES ('$USER_ID', '$ORG_ID', '$USER_EMAIL', '$USER_HASH', '$USER_FIRST', '$USER_LAST', true)
 ON CONFLICT (id) DO NOTHING;
 SQLEOF
+        then
+            print_error "Failed to seed organization/user data in database."
+            exit 1
+        fi
 
         # Seed telephony config if present in bootstrap response
         TELE_SID=$(echo "$BOOTSTRAP" | grep -o '"exotel_account_sid":"[^"]*"' | cut -d'"' -f4)
@@ -565,7 +573,7 @@ SQLEOF
         TELE_APP=$(echo "$BOOTSTRAP" | grep -o '"exotel_app_id":"[^"]*"' | cut -d'"' -f4)
 
         if [ -n "$TELE_SID" ] && [ -n "$TELE_KEY" ] && [ -n "$TELE_TOKEN" ]; then
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=0 2>/dev/null << SQLEOF
+            if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 << SQLEOF
 INSERT INTO organization_caller_ai_config
   (organization_id, exotel_account_sid, exotel_api_key, exotel_api_token,
    exotel_subdomain, exotel_app_id, campaign_flow_id, exotel_is_active, telephony_enabled, kyc_status)
@@ -583,7 +591,10 @@ ON CONFLICT (organization_id) DO UPDATE SET
   kyc_status = 'approved',
   updated_at = NOW();
 SQLEOF
-            print_success "Telephony config seeded"
+                print_success "Telephony config seeded"
+            else
+                print_warn "Telephony config seed failed. You can configure it later from dashboard."
+            fi
         fi
 
         print_success "Account seeded — login with: $USER_EMAIL"

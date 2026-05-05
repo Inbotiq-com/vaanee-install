@@ -632,65 +632,6 @@ CREATE TABLE IF NOT EXISTS workflow_states (
 );
 
 -- ============================================================
--- vaanee_package_licences
--- ============================================================
-CREATE TABLE IF NOT EXISTS vaanee_package_licences (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL REFERENCES organizations(id),
-    subscription_id UUID NOT NULL,
-    api_key_hash TEXT NOT NULL,
-    api_key_prefix TEXT NOT NULL,
-    api_key_issued_at TIMESTAMPTZ DEFAULT now(),
-    licence_status TEXT NOT NULL DEFAULT 'pending_setup',
-    max_agents INTEGER NOT NULL DEFAULT 50,
-    max_concurrent_calls INTEGER NOT NULL DEFAULT 5,
-    executions_allotted INTEGER NOT NULL DEFAULT 0,
-    executions_used INTEGER NOT NULL DEFAULT 0,
-    period_start DATE,
-    period_end DATE,
-    subscription_end_date DATE,
-    last_checkin_at TIMESTAMPTZ,
-    instance_id TEXT,
-    vaanee_version TEXT,
-    latest_version TEXT,
-    update_available BOOLEAN DEFAULT false,
-    paused_reason TEXT,
-    paused_by TEXT,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- ============================================================
--- vaanee_package_events
--- ============================================================
-CREATE TABLE IF NOT EXISTS vaanee_package_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    licence_id UUID NOT NULL REFERENCES vaanee_package_licences(id),
-    event_type TEXT NOT NULL,
-    performed_by TEXT,
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- ============================================================
--- vaanee_request_logs
--- ============================================================
-CREATE TABLE IF NOT EXISTS vaanee_request_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    licence_id UUID NOT NULL REFERENCES vaanee_package_licences(id),
-    organization_id UUID NOT NULL REFERENCES organizations(id),
-    request_type TEXT NOT NULL,
-    ip_address TEXT,
-    instance_id TEXT,
-    vaanee_version TEXT,
-    response_status INTEGER,
-    response_ms INTEGER,
-    retry_attempt INTEGER DEFAULT 0,
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- ============================================================
 -- vaanee_cartesia_dictionaries
 -- ============================================================
 CREATE TABLE IF NOT EXISTS vaanee_cartesia_dictionaries (
@@ -713,9 +654,6 @@ CREATE INDEX IF NOT EXISTS idx_call_executions_organization_id ON call_execution
 CREATE INDEX IF NOT EXISTS idx_call_executions_agent_id ON call_executions(agent_id);
 CREATE INDEX IF NOT EXISTS idx_caller_ai_campaigns_organization_id ON caller_ai_campaigns(organization_id);
 CREATE INDEX IF NOT EXISTS idx_caller_ai_agent_profiles_organization_id ON caller_ai_agent_profiles(organization_id);
-CREATE INDEX IF NOT EXISTS idx_vaanee_package_licences_organization_id ON vaanee_package_licences(organization_id);
-CREATE INDEX IF NOT EXISTS idx_vaanee_package_licences_api_key_hash ON vaanee_package_licences(api_key_hash);
-CREATE INDEX IF NOT EXISTS idx_vaanee_request_logs_licence_id ON vaanee_request_logs(licence_id);
 CREATE INDEX IF NOT EXISTS idx_calls_thru_campaign_campaign_id ON calls_thru_campaign(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_calls_thru_campaign_organization_id ON calls_thru_campaign(organization_id);
 
