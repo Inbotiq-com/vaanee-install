@@ -10,7 +10,7 @@ VAANEE_DIR="$HOME/vaanee"
 REGISTRY="inbotiqregistry.azurecr.io"
 REGISTRY_USER="vaanee-client-pull"
 REGISTRY_PASS="2oAJxC3KyNpFCYMytYlQo1Qul6VrpwksX6kqcCvhpAcwX7U0LtwDJQQJ99CCACGhslBEqg7NAAABAZCRKxM0"
-INBOTIQ_API="https://inbotiq-backend-qa.azurewebsites.net/api"
+INBOTIQ_API="${INBOTIQ_API:-https://inbotiq-backend.azurewebsites.net/api}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -337,6 +337,7 @@ ADMIN_EMAIL=$ADMIN_EMAIL
 # ── Webhook internal API ─────────────────────────────────
 INTERNAL_API_URL=http://vaanee-backend:8080
 PUBLIC_BASE_URL=https://$VAANEE_DOMAIN
+INBOTIQ_API=$INBOTIQ_API
 EOF
 
     print_success ".env created"
