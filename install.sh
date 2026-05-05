@@ -291,6 +291,12 @@ write_files() {
         fi
     fi
 
+    # Add query params safely: use ? for first parameter, & for additional ones
+    DB_URL_DELIM="?"
+    if echo "$DB_URL_FOR_ENV" | grep -q "?"; then
+        DB_URL_DELIM="&"
+    fi
+
     # ── .env ──────────────────────────────────────────────
     cat > .env << EOF
 # Vaanee On-Premise Configuration
@@ -303,7 +309,7 @@ INSTANCE_ID=$(hostname)-$(openssl rand -hex 4)
 # ── Database ─────────────────────────────────────────────
 # NOTE: keepalives params keep long-lived connections alive (important for voice calls)
 # NOTE: options=endpoint%3D is required for Neon DB SNI routing (psycopg2 compatibility)
-DATABASE_URL=${DB_URL_FOR_ENV}&keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5&connect_timeout=10
+DATABASE_URL=${DB_URL_FOR_ENV}${DB_URL_DELIM}keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5&connect_timeout=10
 
 # ── App ──────────────────────────────────────────────────
 NODE_ENV=production
