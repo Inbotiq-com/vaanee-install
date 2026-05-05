@@ -1,13 +1,12 @@
 # Vaanee On-Premise Installer
 
-Production-ready one-time installer for Vaanee customer deployments.
+Production-ready installer for Vaanee customer deployments.
 
 This installer:
 - Validates host requirements
 - Installs/configures Docker (if missing)
-- Generates deployment files (`.env`, `docker-compose.yml`)
-- Runs `migrate.sql` against your PostgreSQL database
-- Bootstraps organization and primary user from Inbotiq
+- Generates deployment files (`.env`, `docker-compose.yml`, `Caddyfile`)
+- Downloads and runs modular SQL migrations on client PostgreSQL
 - Starts Vaanee services
 
 ## 1. Prerequisites
@@ -23,19 +22,55 @@ This installer:
 
 ## 2. Quick Install
 
-Run on your target Linux server:
+Run on target Linux server:
 
 ```bash
-curl -fsSL https://get.vaanee.io/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Inbotiq-com/vaanee-install/main/install.sh -o install.sh
+chmod +x install.sh
+./install.sh
 ```
 
-Installer will prompt for:
+Installer prompts for:
 - `VAANEE_API_KEY`
 - domain (for HTTPS)
 - `DATABASE_URL`
 - admin email (Let's Encrypt notifications)
 
-## 3. What Gets Created
+Optional endpoint override (QA/internal testing only):
+
+```bash
+INBOTIQ_API="https://inbotiq-backend-qa.azurewebsites.net/api" ./install.sh
+```
+
+Default is production endpoint.
+
+## 3. Repository Structure
+
+```text
+vaanee-install/
+  install.sh
+  lib/
+    config.sh
+    ui.sh
+    steps.sh
+    steps/
+      system.sh
+      input_and_validation.sh
+      files_and_migrations.sh
+      runtime.sh
+  migrate.sql
+  migrations/
+    001_extensions.sql
+    002_agents_and_flows.sql
+    003_knowledge_base.sql
+    004_calls_runtime.sql
+    005_pronunciation_and_campaigns.sql
+    006_indexes_and_finalize.sql
+```
+
+`install.sh` is a thin runner. It auto-fetches missing `lib/` step files when executed from a fresh host.
+
+## 4. What Gets Created On Server
 
 Default deployment directory:
 
@@ -46,22 +81,25 @@ $HOME/vaanee
 Important files:
 - `.env`
 - `docker-compose.yml`
+- `Caddyfile`
 - `migrate.sql`
+- `migrations/*.sql`
 
-## 4. Database Migration Behavior
+## 5. Database Migration Behavior
 
-Migration is fail-fast and production-safe:
+Migration is fail-fast and idempotent:
 - `psql` runs with `ON_ERROR_STOP=1`
-- On SQL failure, installer exits immediately
-- No silent migration success
+- on SQL error, installer exits immediately
+- schema uses `IF NOT EXISTS` and safe `ALTER` patterns for reruns
 
-Note:
-- Control-plane tracking tables are intentionally not created in customer DB:
-  - `vaanee_package_licences`
-  - `vaanee_package_events`
-  - `vaanee_request_logs`
+The installer also validates pgvector availability before migration.
 
-## 5. Post-Install Verification
+Control-plane/billing tables are intentionally NOT created in client DB:
+- `vaanee_package_licences`
+- `vaanee_package_events`
+- `vaanee_request_logs`
+
+## 6. Post-Install Verification
 
 ### A) Containers are up
 
@@ -70,12 +108,18 @@ cd ~/vaanee
 sudo docker compose ps
 ```
 
-Expected: all Vaanee services in `Up` state.
+Expected services:
+- `caddy`
+- `vaanee-backend`
+- `vaanee-webhook`
+- `vaanee-checkin`
+- `vaanee-frontend`
 
 ### B) Health/log sanity
 
 ```bash
-sudo docker compose logs --tail=200
+cd ~/vaanee
+sudo docker compose logs --tail=200 vaanee-backend vaanee-webhook vaanee-checkin caddy
 ```
 
 Check there are no startup crash loops or DB connection errors.
@@ -95,68 +139,62 @@ WHERE schemaname = 'public'
 
 Expected: `0 rows`.
 
-### D) Verify required bootstrap data exists
+## 7. Re-run / Upgrade Flow
 
-```sql
-SELECT COUNT(*) FROM organizations;
-SELECT COUNT(*) FROM users;
-```
-
-Expected: at least one organization/user for first successful bootstrap.
-
-## 6. Re-run / Upgrade Flow
-
-Safe re-run pattern:
+Safe rerun:
 
 ```bash
-cd ~/vaanee
+cd ~
 curl -fsSL https://raw.githubusercontent.com/Inbotiq-com/vaanee-install/main/install.sh -o install.sh
-bash install.sh
+chmod +x install.sh
+./install.sh
 ```
 
-Migration uses `IF NOT EXISTS`/idempotent patterns, so reruns are supported.
+## 8. Troubleshooting
 
-## 7. Troubleshooting
-
-### Migration failed
-- Re-run manually to see exact SQL line:
+### API key validation returns `402 expired`
+- Endpoint/environment mismatch (QA vs prod) OR expired backend subscription record.
+- Validate check-in directly:
 
 ```bash
-psql "$DATABASE_URL" -f "$HOME/vaanee/migrate.sql" -v ON_ERROR_STOP=1
+curl -i -X POST "$INBOTIQ_API/vaanee/check-in" \
+  -H "Authorization: Bearer <VAANEE_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"instance_id":"manual-test","version":"1.0.0"}'
 ```
 
-### Bootstrap skipped
-- Cause: API key invalid, API unreachable, or response parse failure
-- Verify key format starts with `vaan_live_`
-- Verify outbound connectivity from server to Inbotiq API
+### Migration fails with pgvector allowlist error (Azure PostgreSQL)
+- Enable `vector` in Azure PostgreSQL server parameter `azure.extensions`.
 
-### SSL/Domain issues
-- Confirm domain A record points to correct public IP
-- Ensure ports `80/443` are open in firewall/security group
+### Database name appears as `...&keepalives=... does not exist`
+- Incorrect query delimiter in `DATABASE_URL`.
+- Correct format should include `?` before query params.
 
-## 8. Security Notes
+### Service name confusion in logs
+- Use compose service names (`caddy`, `vaanee-backend`, etc.), not container names.
+
+## 9. Security Notes
 
 - Treat `DATABASE_URL` and `.env` as secrets
 - Restrict server access to trusted admins only
 - Rotate credentials if exposed
 - Keep host patched and Docker updated
 
-## 9. Rollback (Emergency)
-
-Stop services:
+## 10. Rollback (Emergency)
 
 ```bash
 cd ~/vaanee
 sudo docker compose down
 ```
 
-Restore database from backup/snapshot as per your DB policy.
+Restore database from backup/snapshot as per DB policy.
 
-## 10. Support Checklist (Share When Raising Issue)
+## 11. Support Checklist
 
+When raising an issue, share:
 - OS/version
-- Installer timestamp
+- installer timestamp
 - `docker compose ps` output
-- Last 200 lines of `docker compose logs`
-- Exact migration error line/message
-- Whether bootstrap step succeeded
+- last 200 lines of `docker compose logs`
+- exact migration error line/message
+- API check-in response (`$INBOTIQ_API/vaanee/check-in`)
