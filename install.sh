@@ -591,6 +591,7 @@ ON CONFLICT (organization_id) DO UPDATE SET
   kyc_status = 'approved',
   updated_at = NOW();
 SQLEOF
+            then
                 print_success "Telephony config seeded"
             else
                 print_warn "Telephony config seed failed. You can configure it later from dashboard."
