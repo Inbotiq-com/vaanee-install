@@ -3,4 +3,3 @@ REGISTRY="inbotiqregistry.azurecr.io"
 REGISTRY_USER="vaanee-client-pull"
 REGISTRY_PASS="2oAJxC3KyNpFCYMytYlQo1Qul6VrpwksX6kqcCvhpAcwX7U0LtwDJQQJ99CCACGhslBEqg7NAAABAZCRKxM0"
 INBOTIQ_API="${INBOTIQ_API:-https://inbotiq-backend.azurewebsites.net/api}"
-
