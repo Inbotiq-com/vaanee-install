@@ -198,3 +198,9 @@ When raising an issue, share:
 - last 200 lines of `docker compose logs`
 - exact migration error line/message
 - API check-in response (`$INBOTIQ_API/vaanee/check-in`)
+
+## 12. Operational Docs
+
+- `VM_RECOVERY_RUNBOOK.md`: production recovery SOP for restart loops and 502 incidents.
+- `VM_EXECUTION_CHECKLIST.md`: step-by-step deployment validation checklist for VM windows.
+- `VM_COMMAND_PACK.md`: copy-paste command bundle for deploy/triage/recovery.

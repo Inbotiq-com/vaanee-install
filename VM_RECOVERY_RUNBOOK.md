@@ -1,34 +1,28 @@
 # Vaanee On-Prem VM Recovery Runbook
 
 ## Purpose
-This runbook standardizes recovery of a Vaanee customer VM after deployment failures, container crash loops, or post-upgrade service instability.
+This runbook defines the production recovery flow for Vaanee on-prem VMs after failed deployments, restart loops, or post-release instability.
 
 ## Scope
-Applies to services deployed via `docker compose` under `~/vaanee`:
+Applies to Docker Compose deployments under `~/vaanee`:
 - `vaanee-backend`
 - `vaanee-frontend`
 - `vaanee-webhook`
 - `vaanee-checkin`
 - `caddy`
 
-## Recovery Objectives
-- Restore public health endpoint (`/health`) to HTTP `200`.
-- Ensure `vaanee-backend` and `vaanee-webhook` are healthy and stable.
-- Confirm UI accessibility and login readiness.
-
----
+## Recovery Goals
+- Restore public health endpoint to HTTP `200`.
+- Stabilize `vaanee-backend` and `vaanee-webhook`.
+- Ensure frontend is reachable and login flow is usable.
 
 ## 1. Preconditions
+1. VM SSH access is available.
+2. Operator has `sudo` access.
+3. Deployment directory exists at `~/vaanee`.
+4. Required image tags are already pushed to ACR.
 
-1. SSH access to target VM is available.
-2. User has `sudo` privileges.
-3. Correct deployment directory exists at `~/vaanee`.
-4. Required tags are already pushed to ACR.
-
----
-
-## 2. Initial Triage (Read-Only)
-
+## 2. Initial Triage (Read-only)
 ```bash
 cd ~/vaanee
 sudo docker compose ps
@@ -37,75 +31,66 @@ curl -I https://<your-domain>/health
 ```
 
 Decision:
-- If `/health` is `200` and no restarts: stop here.
-- If services are restarting/unhealthy: continue.
+- If `/health` is `200` and no restart loops are visible, stop.
+- Else continue to controlled refresh.
 
----
-
-## 3. Controlled Service Refresh
-
-### 3.1 Pull latest images
-
+## 3. Controlled Refresh
+### 3.1 Pull target images
 ```bash
 cd ~/vaanee
 sudo docker compose pull vaanee-backend vaanee-frontend vaanee-webhook vaanee-checkin
 ```
 
 ### 3.2 Recreate application services
-
 ```bash
 cd ~/vaanee
 sudo docker compose up -d --force-recreate vaanee-backend vaanee-frontend vaanee-webhook vaanee-checkin
 ```
 
 ### 3.3 Stabilization wait
-
 ```bash
 sleep 40
 sudo docker compose ps
 ```
 
----
-
-## 4. Service Validation Gates
-
-### Gate A: Public endpoint
-
+## 4. Validation Gates
+### Gate A: Public health
 ```bash
 curl -I https://<your-domain>/health
 ```
-
-Pass criteria: HTTP `200`.
+Pass: HTTP `200`.
 
 ### Gate B: Backend liveness
-
 ```bash
 cd ~/vaanee
 sudo docker compose logs --tail=150 vaanee-backend
 ```
-
-Pass criteria:
+Pass:
 - No restart loop.
 - No syntax/runtime fatal errors.
-- `/health` requests return `200` in logs.
+- `/health` returns `200` in backend logs.
 
 ### Gate C: Webhook liveness
-
 ```bash
 cd ~/vaanee
 sudo docker compose logs --tail=120 vaanee-webhook
 ```
-
-Pass criteria:
-- Service is up.
+Pass:
+- Process remains up.
 - No fatal startup exceptions.
 
----
+### Gate D: Frontend liveness
+```bash
+cd ~/vaanee
+sudo docker compose logs --tail=120 vaanee-frontend
+```
+Pass:
+- No container crash loop.
+- No repeated startup fatal exceptions.
 
-## 5. Known Failure Patterns and Actions
-
+## 5. Known Failure Patterns
 ### 5.1 Backend syntax crash (`Unexpected token '<<'`)
-Cause: merge-conflict markers shipped in image.
+Cause: merge conflict markers shipped in backend image.
 
 Validate image content:
 ```bash
@@ -113,63 +98,57 @@ sudo docker run --rm inbotiqregistry.azurecr.io/vaanee-backend:2026-05-08-fix-lo
   sh -c "sed -n '470,510p' /app/routes/auth.js"
 ```
 
-If markers exist:
-- rebuild/push corrected backend image
-- re-run section 3
+If conflict markers exist:
+1. Rebuild and push corrected backend image.
+2. Re-run section 3 and section 4.
 
-### 5.2 Frontend “Server Action” mismatch / stale client state
-Symptoms in logs:
+### 5.2 Frontend Server Action mismatch after deploy
+Symptoms:
 - `Failed to find Server Action`
 - `Unexpected end of form`
+- `Cannot write headers after they are sent to the client`
 
-Action:
-1. Open app in incognito or clear site storage.
+Mitigation sequence:
+1. Open app in incognito or clear site data for the domain.
 2. Hard refresh (`Ctrl+Shift+R`).
-3. Login again.
+3. Re-login and retry form actions.
+4. If still reproducible for new sessions, collect frontend logs and create a code-level fix ticket.
 
 ### 5.3 Healthcheck false negatives
-If app is functional but service shows unhealthy, capture health details:
+If service appears functional but Docker marks unhealthy:
 ```bash
 sudo docker inspect vaanee-frontend --format='{{json .State.Health}}'
 sudo docker inspect vaanee-checkin --format='{{json .State.Health}}'
 ```
 
-Then update healthcheck configuration in compose/image revision.
+Action:
+- Keep service status separate from healthcheck status in incident notes.
+- Update healthcheck command/interval in next compose/image revision.
 
----
-
-## 6. Rollback Procedure (If Recovery Fails)
-
-1. Identify last known good image tags.
-2. Pin tags in `docker-compose.yml` (or deployment env).
+## 6. Rollback
+If recovery fails:
+1. Select last known-good image tags.
+2. Pin tags in `docker-compose.yml`.
 3. Redeploy:
-
 ```bash
 cd ~/vaanee
 sudo docker compose pull
 sudo docker compose up -d --force-recreate
 ```
+4. Re-run validation gates.
 
-4. Re-run Validation Gates (Section 4).
-
----
-
-## 7. Evidence to Capture for Incident Report
-
-Collect and attach:
+## 7. Evidence Collection
+Capture:
 - `sudo docker compose ps`
-- `sudo docker compose logs --tail=200 ...` for failed services
+- `sudo docker compose logs --tail=200 ...` for impacted services
 - `curl -I https://<your-domain>/health`
-- Any `docker inspect ...State.Health` outputs
-- Exact image tags and digests deployed
+- `docker inspect ...State.Health` outputs where relevant
+- deployed image tags and digests
 
----
-
-## 8. Completion Criteria
-
-Recovery is complete only when all below are true:
+## 8. Exit Criteria
+Recovery is complete only when all are true:
 1. `/health` returns HTTP `200`.
-2. `vaanee-backend` is `healthy` and not restarting.
-3. `vaanee-webhook` is up and stable.
-4. UI is reachable and login flow is usable.
+2. `vaanee-backend` is healthy and stable.
+3. `vaanee-webhook` is stable.
+4. Frontend is reachable and login flow works.
 5. Incident evidence is documented.
