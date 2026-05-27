@@ -10,24 +10,39 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RAW_BASE_URL="${RAW_BASE_URL:-https://raw.githubusercontent.com/Inbotiq-com/vaanee-install/main}"
 
 bootstrap_support_files() {
-    if [ -f "$SCRIPT_DIR/lib/config.sh" ] && \
-       [ -f "$SCRIPT_DIR/lib/ui.sh" ] && \
-       [ -f "$SCRIPT_DIR/lib/steps.sh" ] && \
-       [ -f "$SCRIPT_DIR/lib/steps/system.sh" ] && \
-       [ -f "$SCRIPT_DIR/lib/steps/input_and_validation.sh" ] && \
-       [ -f "$SCRIPT_DIR/lib/steps/files_and_migrations.sh" ] && \
-       [ -f "$SCRIPT_DIR/lib/steps/runtime.sh" ]; then
-        return 0
-    fi
+    local migration_files=(
+        "001_extensions.sql"
+        "002_agents_and_flows.sql"
+        "003_knowledge_base.sql"
+        "004_calls_runtime.sql"
+        "005_pronunciation_and_campaigns.sql"
+        "006_indexes_and_finalize.sql"
+    )
 
-    mkdir -p "$SCRIPT_DIR/lib" "$SCRIPT_DIR/lib/steps"
-    curl -fsSL "$RAW_BASE_URL/lib/config.sh" -o "$SCRIPT_DIR/lib/config.sh"
-    curl -fsSL "$RAW_BASE_URL/lib/ui.sh" -o "$SCRIPT_DIR/lib/ui.sh"
-    curl -fsSL "$RAW_BASE_URL/lib/steps.sh" -o "$SCRIPT_DIR/lib/steps.sh"
-    curl -fsSL "$RAW_BASE_URL/lib/steps/system.sh" -o "$SCRIPT_DIR/lib/steps/system.sh"
-    curl -fsSL "$RAW_BASE_URL/lib/steps/input_and_validation.sh" -o "$SCRIPT_DIR/lib/steps/input_and_validation.sh"
-    curl -fsSL "$RAW_BASE_URL/lib/steps/files_and_migrations.sh" -o "$SCRIPT_DIR/lib/steps/files_and_migrations.sh"
-    curl -fsSL "$RAW_BASE_URL/lib/steps/runtime.sh" -o "$SCRIPT_DIR/lib/steps/runtime.sh"
+    fetch_if_missing() {
+        local relative_path="$1"
+        local destination="$SCRIPT_DIR/$relative_path"
+
+        if [ -f "$destination" ]; then
+            return 0
+        fi
+
+        mkdir -p "$(dirname "$destination")"
+        curl -fsSL "$RAW_BASE_URL/$relative_path" -o "$destination"
+    }
+
+    fetch_if_missing "lib/config.sh"
+    fetch_if_missing "lib/ui.sh"
+    fetch_if_missing "lib/steps.sh"
+    fetch_if_missing "lib/steps/system.sh"
+    fetch_if_missing "lib/steps/input_and_validation.sh"
+    fetch_if_missing "lib/steps/files_and_migrations.sh"
+    fetch_if_missing "lib/steps/runtime.sh"
+    fetch_if_missing "migrate.sql"
+
+    for migration_file in "${migration_files[@]}"; do
+        fetch_if_missing "migrations/$migration_file"
+    done
 }
 
 bootstrap_support_files

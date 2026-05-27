@@ -68,7 +68,7 @@ vaanee-install/
     006_indexes_and_finalize.sql
 ```
 
-`install.sh` is a thin runner. It auto-fetches missing `lib/` step files when executed from a fresh host.
+`install.sh` is a thin runner. It auto-fetches missing `lib/` step files plus `migrate.sql` and `migrations/*.sql` when executed from a fresh host.
 
 ## 4. What Gets Created On Server
 
