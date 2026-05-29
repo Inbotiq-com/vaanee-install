@@ -44,6 +44,40 @@ INBOTIQ_API="https://inbotiq-backend-qa.azurewebsites.net/api" ./install.sh
 
 Default is production endpoint.
 
+## 2b. Local Testing (no public domain / SSL)
+
+To test the full stack on a machine without a public domain — e.g. a VirtualBox VM
+on your LAN — set `VAANEE_LOCAL_TLS=1`. This makes Caddy issue a **self-signed**
+certificate (via `tls internal`) instead of Let's Encrypt, which cannot validate a
+non-public domain. It also points the post-install health check at `localhost`.
+
+```bash
+VAANEE_LOCAL_TLS=1 bash install.sh
+```
+
+At the domain prompt, enter any name you like (e.g. `vaanee.local`). After install:
+
+1. On the **machine running the browser**, map that domain to the VM's LAN IP in the
+   hosts file (`/etc/hosts` on Linux/macOS, `C:\Windows\System32\drivers\etc\hosts`
+   on Windows), e.g.:
+
+   ```text
+   192.168.1.18   vaanee.local
+   ```
+
+2. Browse to `https://vaanee.local` and accept the self-signed certificate warning.
+
+Verify on the VM:
+
+```bash
+cd ~/vaanee
+sudo docker compose ps
+curl -k https://localhost/health    # expect 200
+```
+
+> `VAANEE_LOCAL_TLS` has **no effect** on normal installs — leave it unset for any
+> real deployment so Let's Encrypt issues a trusted certificate as usual.
+
 ## 3. Repository Structure
 
 ```text

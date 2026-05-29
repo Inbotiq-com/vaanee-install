@@ -129,12 +129,20 @@ volumes:
   caddy_config:
 EOF
 
+    # Local testing: use Caddy's self-signed cert instead of Let's Encrypt,
+    # which cannot validate a non-public domain (e.g. on a VirtualBox VM).
+    # Enable with: VAANEE_LOCAL_TLS=1 bash install.sh
+    local tls_directive=""
+    if [ "${VAANEE_LOCAL_TLS:-}" = "1" ]; then
+        tls_directive=$'\n    tls internal'
+    fi
+
     cat > "$VAANEE_DIR/Caddyfile" << EOF
 {
     email ${ADMIN_EMAIL}
 }
 
-${VAANEE_DOMAIN} {
+${VAANEE_DOMAIN} {${tls_directive}
     encode gzip
 
     @backend path /api/* /health /auth/* /dashboard/* /vaanee/*

@@ -34,10 +34,20 @@ wait_and_verify() {
     print_step "Waiting for Vaanee to be ready"
     echo ""
 
+    # Local testing: the public domain won't resolve from this host and the
+    # cert is self-signed, so probe localhost and accept the self-signed cert.
+    if [ "${VAANEE_LOCAL_TLS:-}" = "1" ]; then
+        HEALTH_URL="https://localhost/health"
+        HEALTH_CURL_OPTS="-sk"
+    else
+        HEALTH_URL="https://$VAANEE_DOMAIN/health"
+        HEALTH_CURL_OPTS="-s"
+    fi
+
     MAX_WAIT=120
     ELAPSED=0
     while [ $ELAPSED -lt $MAX_WAIT ]; do
-        HTTP=$(curl -s -o /dev/null -w "%{http_code}" "https://$VAANEE_DOMAIN/health" --max-time 5 2>/dev/null || echo "000")
+        HTTP=$(curl $HEALTH_CURL_OPTS -o /dev/null -w "%{http_code}" "$HEALTH_URL" --max-time 5 2>/dev/null || echo "000")
         if [ "$HTTP" = "200" ]; then
             break
         fi
@@ -55,6 +65,12 @@ wait_and_verify() {
         echo -e "${GREEN}${BOLD}════════════════════════════════════════════════${NC}"
         echo ""
         echo -e "  ${BOLD}URL:${NC}     https://$VAANEE_DOMAIN"
+        if [ "${VAANEE_LOCAL_TLS:-}" = "1" ]; then
+            echo -e "  ${BOLD}Note:${NC}    Local TLS mode (self-signed). On the machine with the browser,"
+            echo -e "           map the domain to this VM's IP in your hosts file, e.g.:"
+            echo -e "             $(hostname -I | awk '{print $1}')   $VAANEE_DOMAIN"
+            echo -e "           Then accept the browser's self-signed cert warning."
+        fi
         echo -e "  ${BOLD}Logs:${NC}    cd $VAANEE_DIR && docker compose logs -f"
         echo -e "  ${BOLD}Update:${NC}  cd $VAANEE_DIR && docker compose pull && docker compose up -d"
         echo -e "  ${BOLD}Stop:${NC}    cd $VAANEE_DIR && docker compose down"

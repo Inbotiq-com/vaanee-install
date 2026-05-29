@@ -1,0 +1,6 @@
+# Keep shell scripts and SQL LF-only so they run on Linux even when
+# authored/edited on Windows (avoids the `$'\r': command not found` error).
+*.sh   text eol=lf
+*.sql  text eol=lf
+*.bash text eol=lf
+install.sh text eol=lf
