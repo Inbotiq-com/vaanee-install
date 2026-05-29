@@ -8,7 +8,10 @@ pull_images() {
         --username "$REGISTRY_USER" \
         --password-stdin
 
-    sudo docker compose pull
+    (
+        cd "$VAANEE_DIR"
+        sudo docker compose pull
+    )
     print_success "Images pulled"
 }
 
@@ -17,7 +20,10 @@ pull_images() {
 # ============================================================
 start_services() {
     print_step "Starting Vaanee"
-    sudo docker compose up -d
+    (
+        cd "$VAANEE_DIR"
+        sudo docker compose up -d
+    )
     print_success "Containers started"
 }
 
