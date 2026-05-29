@@ -35,10 +35,12 @@ wait_and_verify() {
     echo ""
 
     # Local testing: the public domain won't resolve from this host and the
-    # cert is self-signed, so probe localhost and accept the self-signed cert.
+    # cert is self-signed. Caddy only serves the configured site name, so we
+    # must present that hostname (SNI) while connecting to 127.0.0.1, and
+    # accept the self-signed cert.
     if [ "${VAANEE_LOCAL_TLS:-}" = "1" ]; then
-        HEALTH_URL="https://localhost/health"
-        HEALTH_CURL_OPTS="-sk"
+        HEALTH_URL="https://$VAANEE_DOMAIN/health"
+        HEALTH_CURL_OPTS="-sk --resolve $VAANEE_DOMAIN:443:127.0.0.1"
     else
         HEALTH_URL="https://$VAANEE_DOMAIN/health"
         HEALTH_CURL_OPTS="-s"
