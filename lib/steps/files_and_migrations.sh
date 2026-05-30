@@ -145,7 +145,10 @@ EOF
 ${VAANEE_DOMAIN} {${tls_directive}
     encode gzip
 
-    @backend path /api/* /health /auth/* /dashboard/* /vaanee/*
+    # Backend (Express) serves ONLY /api/* and the root /health probe. UI routes
+    # like /dashboard/*, /auth/*, /vaanee/* are Next.js frontend pages — routing
+    # those bare paths here makes the backend 404 them (e.g. /dashboard/caller-ai-chatbot).
+    @backend path /api/* /health
     handle @backend {
         reverse_proxy vaanee-backend:8080
     }
