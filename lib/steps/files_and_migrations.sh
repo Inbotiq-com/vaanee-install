@@ -69,6 +69,11 @@ services:
       - AI_WEBHOOK_BASE_URL=https://${VAANEE_DOMAIN}
       - CALLER_AI_CAMPAIGN_ENDPOINT_URL=https://${VAANEE_DOMAIN}/exotel/campaigns
       - N8N_CALLER_AI_FIRST_MESSAGE_WEBHOOK_URL=https://${VAANEE_DOMAIN}/exotel/answer
+      # Read the per-org "Assigned" provider keys (Google for KB embeddings) that
+      # the checkin container writes to the shared cache (audit P4/B1).
+      - VAANEE_TELEPHONY_CACHE=/app/cache/telephony_cache.json
+    volumes:
+      - vaanee_cache:/app/cache
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
       interval: 30s
