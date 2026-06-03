@@ -17,6 +17,8 @@ bootstrap_support_files() {
         "004_calls_runtime.sql"
         "005_pronunciation_and_campaigns.sql"
         "006_indexes_and_finalize.sql"
+        "007_telephony_and_config.sql"
+        "008_knowledge_base_vectors.sql"
     )
 
     fetch_if_missing() {
@@ -55,8 +57,13 @@ source "$SCRIPT_DIR/lib/ui.sh"
 source "$SCRIPT_DIR/lib/steps.sh"
 
 main() {
-    # Re-open stdin from terminal when piped via curl | bash
-    exec < /dev/tty
+    # Re-open stdin from the terminal when piped via `curl | bash` (interactive
+    # installs). Guarded so automated/non-interactive installs (no controlling
+    # tty, answers supplied via env vars) don't abort with
+    # "/dev/tty: No such device or address" — audit INSTALL-TTY.
+    if { : < /dev/tty; } 2>/dev/null; then
+        exec < /dev/tty
+    fi
 
     print_logo
     check_os
