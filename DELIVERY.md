@@ -104,6 +104,27 @@ set, and brings the stack up behind Caddy (Let's Encrypt).
 
 ---
 
+---
+
+## Release `2026-06-03-onprem` — validated on a clean VM
+
+Smoke-tested end-to-end on `vaanee-test-new` (Ubuntu 24.04, Docker 29). All five
+containers healthy; check-in → licence cache (shared volume) → webhook gate,
+retry scheduler boot, and external HTTPS via Caddy all verified. Image digests
+(for digest-pinning if you prefer immutable references over the tag):
+
+```
+vaanee-webhook  @sha256:19f4578600f94923942c18660c451e062b3d6a33f21d7b37bab1d0546c6c909e
+vaanee-backend  @sha256:333b267ade3b671fb6a0283231af5fbfcc88e63a6b9a07c4ea2781f1daa154ba
+vaanee-frontend @sha256:f5f390b53c307523d407e1dd2e146ef5138c8426c63b0a5983462c0cd0b9e168
+```
+
+Clean-VM testing fixed four install-blocking bugs now baked into the images:
+- webhook & frontend crash-loop on CRLF entrypoints (Windows checkout) — normalized at build;
+- backend crash on boot when SMTP absent — email now degrades gracefully;
+- `vaanee_cache` volume was root-owned so the non-root checkin could not write the
+  licence cache (calls would fail closed) — images now own `/app/cache` as UID 1001.
+
 ### Enforcement notes (how central control holds)
 
 - **Kill switch**: pausing / cancelling / expiring the licence in the portal stops
