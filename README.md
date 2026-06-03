@@ -44,6 +44,22 @@ INBOTIQ_API="https://inbotiq-backend-qa.azurewebsites.net/api" ./install.sh
 
 Default is production endpoint.
 
+### Non-interactive (automated) install
+
+For CI / scripted provisioning, supply the answers via environment variables and
+set `NONINTERACTIVE=1` to skip the confirmation prompt. The installer uses any
+value provided and only prompts for those left unset:
+
+```bash
+VAANEE_API_KEY='vaan_live_...' \
+VAANEE_DOMAIN='vaanee.yourcompany.com' \
+DATABASE_URL='postgresql://user:pass@host:5432/dbname' \
+ADMIN_EMAIL='ops@yourcompany.com' \
+REGISTRY_PASS='<per-customer ACR pull token>' \
+NONINTERACTIVE=1 \
+bash install.sh
+```
+
 ## 2b. Local Testing (no public domain / SSL)
 
 To test the full stack on a machine without a public domain — e.g. a VirtualBox VM
