@@ -41,6 +41,12 @@ CREATE TABLE IF NOT EXISTS organization_caller_ai_config (
     plivo_auth_token TEXT,
     plivo_is_active BOOLEAN NOT NULL DEFAULT false,
     plivo_application_id TEXT,
+    -- Per-org "Assigned Key" voice/LLM provider keys (P4 option-c). On-prem the
+    -- VM normally reads these from the check-in cache; these columns exist for
+    -- the local-DB fallback path in db/org_config.py.
+    cartesia_api_key TEXT,
+    sarvam_api_key TEXT,
+    google_api_key TEXT,
     -- Shared / misc
     campaign_flow_id VARCHAR(255),
     encrypted_config TEXT,
