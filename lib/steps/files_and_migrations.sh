@@ -167,7 +167,7 @@ ${VAANEE_DOMAIN} {${tls_directive}
         reverse_proxy vaanee-backend:8080
     }
 
-    @webhook path /exotel/* /ws/* /agents/*
+    @webhook path /exotel/* /ws/* /agents/* /plivo/*
     handle @webhook {
         reverse_proxy vaanee-webhook:8000
     }
