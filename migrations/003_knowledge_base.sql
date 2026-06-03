@@ -11,6 +11,27 @@
 -- local pgvector table (knowledge_base_chunks) created in migration 008 once
 -- the on-prem KB retrieval path reads pgvector instead of central Cosmos.
 -- This document table intentionally has no vector column (it matches qa).
+--
+-- Upgrade self-heal (audit SCH-01b): a pre-launch DB may already hold the OLD
+-- broken knowledge_base_items (chunk/vector shape: item_id/content/chunk_index/
+-- content_vector) which never worked — every upload hit 42703 — so it has no
+-- usable data. CREATE TABLE IF NOT EXISTS would leave that wrong table in place
+-- and the document-schema indexes below would fail (e.g. workflow_execution_id
+-- does not exist). Detect the old shape by the ABSENCE of source_name (the key
+-- column of the document schema) and drop it so the correct table is created.
+-- A correct/populated table already has source_name -> never dropped (safe).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables
+               WHERE table_schema='public' AND table_name='knowledge_base_items')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_schema='public' AND table_name='knowledge_base_items'
+                         AND column_name='source_name') THEN
+        RAISE NOTICE 'Dropping pre-launch knowledge_base_items (old shape, no source_name)';
+        DROP TABLE knowledge_base_items CASCADE;
+    END IF;
+END$$;
+
 CREATE TABLE IF NOT EXISTS knowledge_base_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL,
