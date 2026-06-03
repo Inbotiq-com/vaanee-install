@@ -13,3 +13,4 @@
 \ir migrations/005_pronunciation_and_campaigns.sql
 \ir migrations/006_indexes_and_finalize.sql
 \ir migrations/007_telephony_and_config.sql
+\ir migrations/008_knowledge_base_vectors.sql
