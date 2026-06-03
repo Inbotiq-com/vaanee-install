@@ -57,6 +57,36 @@ CREATE TABLE IF NOT EXISTS organization_caller_ai_config (
     CONSTRAINT uq_org_caller_ai_config_org UNIQUE (organization_id)
 );
 
+-- Upgrade path (audit SCH-01b): the on-prem backend can runtime-create a leaner/
+-- older organization_caller_ai_config, so CREATE TABLE IF NOT EXISTS may have left
+-- it without the columns the check-in fallback + telephony read. Bring it to the
+-- full shape idempotently (keeps any existing rows; NOT NULL adds carry defaults).
+ALTER TABLE organization_caller_ai_config
+    ADD COLUMN IF NOT EXISTS kyc_status VARCHAR(50) DEFAULT 'not_started',
+    ADD COLUMN IF NOT EXISTS kyc_approved_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS kyc_approved_by UUID,
+    ADD COLUMN IF NOT EXISTS kyc_rejection_reason TEXT,
+    ADD COLUMN IF NOT EXISTS telephony_enabled BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS telephony_enabled_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS telephony_provider TEXT NOT NULL DEFAULT 'exotel',
+    ADD COLUMN IF NOT EXISTS exotel_account_sid VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS exotel_api_key VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS exotel_api_token TEXT,
+    ADD COLUMN IF NOT EXISTS exotel_subdomain VARCHAR(255) DEFAULT 'api.in.exotel.com',
+    ADD COLUMN IF NOT EXISTS exotel_app_id VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS exotel_is_active BOOLEAN DEFAULT true,
+    ADD COLUMN IF NOT EXISTS plivo_auth_id TEXT,
+    ADD COLUMN IF NOT EXISTS plivo_auth_token TEXT,
+    ADD COLUMN IF NOT EXISTS plivo_is_active BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS plivo_application_id TEXT,
+    ADD COLUMN IF NOT EXISTS cartesia_api_key TEXT,
+    ADD COLUMN IF NOT EXISTS sarvam_api_key TEXT,
+    ADD COLUMN IF NOT EXISTS google_api_key TEXT,
+    ADD COLUMN IF NOT EXISTS campaign_flow_id VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS encrypted_config TEXT,
+    ADD COLUMN IF NOT EXISTS created_by UUID,
+    ADD COLUMN IF NOT EXISTS updated_by UUID;
+
 CREATE INDEX IF NOT EXISTS idx_org_caller_ai_config_org ON organization_caller_ai_config(organization_id);
 
 -- ---------------------------------------------------------------------------
@@ -82,6 +112,21 @@ CREATE TABLE IF NOT EXISTS organization_phone_numbers (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_org_phone_numbers_org_number UNIQUE (organization_id, phone_number)
 );
+
+-- Upgrade path (audit SCH-01b): the backend can runtime-create an older
+-- organization_phone_numbers without provider/status (which the lookup index +
+-- caller-id resolution need). Add the missing columns idempotently before indexing.
+ALTER TABLE organization_phone_numbers
+    ADD COLUMN IF NOT EXISTS phone_number_normalized VARCHAR(32),
+    ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL DEFAULT 'exotel',
+    ADD COLUMN IF NOT EXISTS exotel_phone_sid VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS exotel_app_id VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS plivo_number_id TEXT,
+    ADD COLUMN IF NOT EXISTS plivo_application_id TEXT,
+    ADD COLUMN IF NOT EXISTS friendly_name VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'active',
+    ADD COLUMN IF NOT EXISTS assigned_by UUID,
+    ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
 
 CREATE INDEX IF NOT EXISTS idx_org_phone_numbers_org ON organization_phone_numbers(organization_id);
 CREATE INDEX IF NOT EXISTS idx_org_phone_numbers_lookup ON organization_phone_numbers(organization_id, provider, status);
