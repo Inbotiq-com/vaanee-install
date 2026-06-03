@@ -89,6 +89,14 @@ services:
       - WEBSOCKET_URL_HOST=${VAANEE_DOMAIN}
       - WEBSOCKET_URL_SCHEME=wss
       - WEBSOCKET_URL_PATH=/exotel/ws
+      # Shared cache: the checkin container WRITES the licence/telephony cache
+      # here and the webhook READS it for enforcement (audit C4/SCH-02 — without
+      # a shared volume the read always missed and concurrency enforcement was
+      # silently skipped because reads fail open).
+      - VAANEE_LICENCE_CACHE=/app/cache/licence_cache.json
+      - VAANEE_TELEPHONY_CACHE=/app/cache/telephony_cache.json
+    volumes:
+      - vaanee_cache:/app/cache
 
   vaanee-checkin:
     image: ${REGISTRY}/vaanee-webhook:qa
@@ -98,6 +106,11 @@ services:
       - vaanee-network
     env_file:
       - .env
+    environment:
+      - VAANEE_LICENCE_CACHE=/app/cache/licence_cache.json
+      - VAANEE_TELEPHONY_CACHE=/app/cache/telephony_cache.json
+    volumes:
+      - vaanee_cache:/app/cache
     command: ["python", "checkin_service.py"]
     healthcheck:
       disable: true
@@ -127,6 +140,7 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  vaanee_cache:
 EOF
 
     # Local testing: use Caddy's self-signed cert instead of Let's Encrypt,
@@ -178,6 +192,20 @@ run_migrations() {
         sudo apt-get update -qq
         sudo apt-get install -y -qq postgresql-client
     fi
+
+    # Preflight: pgvector must be available BEFORE running migrations under
+    # ON_ERROR_STOP, otherwise CREATE EXTENSION "vector" (001_extensions.sql)
+    # aborts the ENTIRE run mid-flight on managed Postgres that doesn't
+    # allow-list it, leaving a partial schema (audit D5/SCH-06).
+    if ! psql "$DATABASE_URL" -tAc "SELECT 1 FROM pg_available_extensions WHERE name='vector'" 2>/dev/null | grep -q 1; then
+        print_error "PostgreSQL extension 'vector' (pgvector) is not available on this server."
+        echo "  Vaanee's knowledge base requires pgvector. Enable it, then re-run the installer:"
+        echo "    - Azure Database for PostgreSQL: add VECTOR to server parameter 'azure.extensions', then restart the server."
+        echo "    - Self-managed Postgres: install the matching 'postgresql-<version>-pgvector' package."
+        echo "  Verify with:  psql \"\$DATABASE_URL\" -c \"SELECT name FROM pg_available_extensions WHERE name='vector';\""
+        exit 1
+    fi
+    print_success "pgvector extension is available"
 
     (
         cd "$VAANEE_DIR"
