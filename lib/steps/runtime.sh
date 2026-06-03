@@ -3,7 +3,14 @@ pull_images() {
     echo "  This may take a few minutes depending on your connection..."
     echo ""
 
-    # Login to registry with read-only pull token
+    # Login to registry with read-only pull token. The token is provided per-install
+    # via the REGISTRY_PASS env var (no longer baked into source — audit SEC-03);
+    # fail closed with a clear message if it is missing.
+    if [ -z "${REGISTRY_PASS:-}" ]; then
+        print_error "REGISTRY_PASS is not set. Provide the per-customer ACR pull token, e.g.:"
+        echo "    REGISTRY_PASS='<token>' bash install.sh"
+        exit 1
+    fi
     echo "$REGISTRY_PASS" | sudo docker login "$REGISTRY" \
         --username "$REGISTRY_USER" \
         --password-stdin

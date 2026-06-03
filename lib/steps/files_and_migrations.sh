@@ -57,7 +57,7 @@ services:
       - vaanee-webhook
 
   vaanee-backend:
-    image: ${REGISTRY}/vaanee-backend:2026-05-08-fix-login
+    image: ${REGISTRY}/vaanee-backend:${ONPREM_IMAGE_TAG}
     container_name: vaanee-backend
     restart: unless-stopped
     networks:
@@ -82,7 +82,7 @@ services:
       start_period: 45s
 
   vaanee-webhook:
-    image: ${REGISTRY}/vaanee-webhook:qa
+    image: ${REGISTRY}/vaanee-webhook:${ONPREM_IMAGE_TAG}
     container_name: vaanee-webhook
     restart: unless-stopped
     networks:
@@ -90,6 +90,11 @@ services:
     env_file:
       - .env
     environment:
+      # Bind 8000 explicitly. The shared .env sets PORT=8080 (for backend/frontend),
+      # but Caddy proxies @webhook -> vaanee-webhook:8000 and startup.sh honours
+      # $PORT, so without this override the webhook would listen on 8080 and every
+      # /exotel/* and /plivo/* request would 502 (audit BUILD-03).
+      - PORT=8000
       - CALL_WEBSOCKET_URL=wss://${VAANEE_DOMAIN}/exotel/ws
       - WEBSOCKET_URL_HOST=${VAANEE_DOMAIN}
       - WEBSOCKET_URL_SCHEME=wss
@@ -100,11 +105,21 @@ services:
       # silently skipped because reads fail open).
       - VAANEE_LICENCE_CACHE=/app/cache/licence_cache.json
       - VAANEE_TELEPHONY_CACHE=/app/cache/telephony_cache.json
+      # Persist the APScheduler SQLite jobstore on the shared volume so scheduled
+      # calls / retries survive container restarts (audit SCH-05); the default
+      # path lives under ephemeral /app and was lost on every restart.
+      - RETRY_SCHEDULER_DB=/app/cache/retry_scheduler.db
     volumes:
       - vaanee_cache:/app/cache
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
 
   vaanee-checkin:
-    image: ${REGISTRY}/vaanee-webhook:qa
+    image: ${REGISTRY}/vaanee-webhook:${ONPREM_IMAGE_TAG}
     container_name: vaanee-checkin
     restart: unless-stopped
     networks:
@@ -121,7 +136,7 @@ services:
       disable: true
 
   vaanee-frontend:
-    image: ${REGISTRY}/vaanee-frontend:qa
+    image: ${REGISTRY}/vaanee-frontend:${ONPREM_IMAGE_TAG}
     container_name: vaanee-frontend
     restart: unless-stopped
     networks:
