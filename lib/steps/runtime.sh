@@ -118,6 +118,11 @@ case "$1" in
         echo "Pulling latest images..."
         docker compose pull
         docker compose up -d
+        # Reclaim disk from the now-unused old image layers (audit OPS-01): repeated
+        # updates otherwise accumulate dangling images and fill small VM disks, which
+        # makes a later `docker compose up` fail with "no space left on device".
+        echo "Reclaiming disk from old images..."
+        docker image prune -f >/dev/null 2>&1 || true
         echo "Done."
         ;;
     logs)    docker compose logs -f "${2:-}" ;;
