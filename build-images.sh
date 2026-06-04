@@ -25,6 +25,13 @@ REGISTRY_NAME="${REGISTRY_NAME:-inbotiqregistry}"
 TAG="${ONPREM_IMAGE_TAG:-2026-06-03-onprem}"
 SRC_ROOT="${1:-.}"
 
+# On a Windows release machine, `az acr build`'s log streaming can crash with a
+# cp1252 UnicodeEncodeError on Unicode build output (pip/npm progress) — which aborts
+# the build BEFORE the image is pushed. Force UTF-8 with a replacing error handler so
+# log streaming never crashes the build (no-op on Linux/macOS). Audit BUILD-07.
+export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8:replace}"
+export PYTHONUTF8="${PYTHONUTF8:-1}"
+
 build() {
     local repo="$1" image="$2"
     if [ ! -d "$SRC_ROOT/$repo" ]; then
