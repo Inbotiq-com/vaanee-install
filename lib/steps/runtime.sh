@@ -1,13 +1,38 @@
+# Fetch the read-only registry pull token from the central Inbotiq server using the
+# licence key (audit INSTALL-REG-01), so the dashboard guide only needs API key / domain
+# / DB / email — no registry secret in the client's hands or in installer source.
+fetch_registry_credentials() {
+    local base resp r u p
+    base="${INBOTIQ_API:-}"
+    [ -z "$base" ] && return 1
+    [ -z "${VAANEE_API_KEY:-}" ] && return 1
+    resp=$(curl -fsS --max-time 25 -H "Authorization: Bearer $VAANEE_API_KEY" \
+        "${base%/}/vaanee/registry-credentials" 2>/dev/null) || return 1
+    p=$(echo "$resp" | grep -oE '"password":"[^"]*"' | head -1 | sed 's/.*:"//;s/"$//')
+    [ -n "$p" ] || return 1
+    r=$(echo "$resp" | grep -oE '"registry":"[^"]*"' | head -1 | sed 's/.*:"//;s/"$//')
+    u=$(echo "$resp" | grep -oE '"username":"[^"]*"' | head -1 | sed 's/.*:"//;s/"$//')
+    [ -n "$r" ] && REGISTRY="$r"
+    [ -n "$u" ] && REGISTRY_USER="$u"
+    REGISTRY_PASS="$p"
+    print_success "Registry credentials fetched from Inbotiq"
+    return 0
+}
+
 pull_images() {
     print_step "Pulling Vaanee images"
     echo "  This may take a few minutes depending on your connection..."
     echo ""
 
-    # Login to registry with read-only pull token. The token is provided per-install
-    # via the REGISTRY_PASS env var (no longer baked into source — audit SEC-03);
-    # fail closed with a clear message if it is missing.
+    # Obtain the read-only registry pull token. Preferred: fetch it from the central
+    # server with the licence key (the guide only asks for API key/domain/DB/email).
+    # Fall back to a REGISTRY_PASS provided in the environment (explicit per-customer token).
     if [ -z "${REGISTRY_PASS:-}" ]; then
-        print_error "REGISTRY_PASS is not set. Provide the per-customer ACR pull token, e.g.:"
+        fetch_registry_credentials || true
+    fi
+    if [ -z "${REGISTRY_PASS:-}" ]; then
+        print_error "Could not obtain registry credentials from the Inbotiq server and no"
+        echo "    REGISTRY_PASS was provided. Check VAANEE_API_KEY / network, or pass"
         echo "    REGISTRY_PASS='<token>' bash install.sh"
         exit 1
     fi
