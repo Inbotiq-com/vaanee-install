@@ -67,6 +67,10 @@ services:
     environment:
       - N8N_CALLER_AI_WEBHOOK_URL=https://${VAANEE_DOMAIN}/exotel/calls
       - AI_WEBHOOK_BASE_URL=https://${VAANEE_DOMAIN}
+      # The pronunciation proxy reaches the webhook over the INTERNAL docker network so
+      # the webhook's /agents/* endpoints (which only check an X-Organization-Id header,
+      # no token) don't have to be exposed publicly via Caddy (audit SEC).
+      - VAANEE_WEBHOOK_INTERNAL_URL=http://vaanee-webhook:8000
       - CALLER_AI_CAMPAIGN_ENDPOINT_URL=https://${VAANEE_DOMAIN}/exotel/campaigns
       - N8N_CALLER_AI_FIRST_MESSAGE_WEBHOOK_URL=https://${VAANEE_DOMAIN}/exotel/answer
       # Read the per-org "Assigned" provider keys (Google for KB embeddings) that
@@ -187,7 +191,12 @@ ${VAANEE_DOMAIN} {${tls_directive}
         reverse_proxy vaanee-backend:8080
     }
 
-    @webhook path /exotel/* /ws/* /agents/* /plivo/*
+    # /agents/* is intentionally NOT proxied publicly: the webhook's
+    # /agents/{id}/pronunciation-dictionary endpoints only check an X-Organization-Id
+    # header (no token), so anyone who knew an org+agent UUID could tamper with
+    # pronunciations via the org's Cartesia key. The backend reaches them over the
+    # internal docker network instead (VAANEE_WEBHOOK_INTERNAL_URL above) (audit SEC).
+    @webhook path /exotel/* /ws/* /plivo/*
     handle @webhook {
         reverse_proxy vaanee-webhook:8000
     }
