@@ -12,6 +12,6 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # Single immutable image tag for all on-prem services so backend/webhook/frontend
 # always ship as one tested, reproducible set (was mismatched: backend on a
 # one-off 'fix-login' tag, others on the moving 'qa' tag — audit BUILD-02).
-ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-06-onprem}"
+ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-08-onprem}"
 
 INBOTIQ_API="${INBOTIQ_API:-https://inbotiq-backend.azurewebsites.net/api}"

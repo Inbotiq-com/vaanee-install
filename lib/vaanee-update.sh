@@ -84,9 +84,10 @@ RP=$(printf '%s' "$CREDS" | grep -oE '"password":"[^"]*"' | sed 's/.*:"//;s/"$//
 
 # 4) Point all three images at the new tag, pull, recreate.
 sed -i -E "s#(vaanee-(webhook|backend|frontend)):[^\"[:space:]]+#\1:$WANT#g" "$COMPOSE"
-# Keep the backend's advertised running tag in sync so the dashboard's update
-# notification clears once the new images are live.
+# Keep the backend's advertised running tag in sync (in compose AND .env, wherever
+# it lives) so the dashboard's update notification clears once the new images are live.
 sed -i -E "s#(VAANEE_RUNNING_IMAGE_TAG=)[^\"[:space:]]+#\1$WANT#g" "$COMPOSE"
+[ -f "$VAANEE_DIR/.env" ] && sed -i -E "s#(VAANEE_RUNNING_IMAGE_TAG=)[^\"[:space:]]+#\1$WANT#g" "$VAANEE_DIR/.env"
 dc pull >>"$LOG" 2>&1 || rollback "image pull failed"
 dc up -d >>"$LOG" 2>&1 || rollback "compose up failed"
 
