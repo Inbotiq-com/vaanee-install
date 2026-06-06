@@ -19,6 +19,13 @@ COMPOSE="$VAANEE_DIR/docker-compose.yml"
 LOG="$VAANEE_DIR/vaanee-update.log"
 log() { echo "[$(date -u +%FT%TZ)] $*" >> "$LOG"; }
 
+# Single-flight: the systemd timer could fire while a previous run is still
+# pulling/recreating. Take a non-blocking lock; if held, skip this tick.
+exec 9>"$VAANEE_DIR/.vaanee-update.lock" 2>/dev/null || true
+if command -v flock >/dev/null 2>&1; then
+  flock -n 9 || { log "another updater run in progress; skipping"; exit 0; }
+fi
+
 [ -f "$COMPOSE" ] || { log "no compose at $COMPOSE; abort"; exit 0; }
 # Load env (VAANEE_API_KEY / INBOTIQ_API / VAANEE_MAIN_SERVER_URL / INSTANCE_ID).
 if [ -f "$VAANEE_DIR/.env" ]; then set -a; . "$VAANEE_DIR/.env"; set +a; fi
