@@ -61,12 +61,41 @@ if [ -n "$MAND" ]; then
   ME=$(date -d "$MAND" +%s 2>/dev/null || echo 0); NOW=$(date +%s)
   [ "$ME" != "0" ] && [ "$NOW" -ge "$ME" ] && DUE=1
 fi
+
+# Canary (#4): only apply if this VM is within the published rollout %, unless the
+# update has become mandatory.
+ELIGIBLE=$(printf '%s' "$RESP" | grep -oE '"update_eligible":(true|false)' | head -1 | grep -oE 'true|false')
+if [ "$ELIGIBLE" = "false" ] && [ "$DUE" != "1" ]; then
+  log "update $CUR -> $WANT published; this VM not in the rollout yet; waiting"
+  exit 0
+fi
+
 if [ "$FLAG" != "1" ] && [ "$DUE" != "1" ]; then
   log "update $CUR -> $WANT available; awaiting client opt-in or mandatory deadline ($MAND)"
   exit 0
 fi
 
-log "UPDATE requested: $CUR -> $WANT (flag=$FLAG mandatory_due=$DUE)"
+# Don't interrupt active calls (#5) unless the update is now mandatory.
+if [ "$DUE" != "1" ]; then
+  ACTIVE=$(docker exec vaanee-webhook python3 -c "
+import os
+def _n():
+    try:
+        import psycopg2
+        c = psycopg2.connect(os.environ['DATABASE_URL'], connect_timeout=5)
+        cur = c.cursor(); cur.execute(\"SELECT COUNT(*) FROM call_session WHERE ended_at IS NULL AND started_at > NOW() - INTERVAL '3 hours'\")
+        n = int(cur.fetchone()[0]); c.close(); return n
+    except Exception:
+        return 0
+print(_n())
+" 2>/dev/null || echo 0)
+  if [ "${ACTIVE:-0}" -gt 0 ]; then
+    log "deferring update $CUR -> $WANT: $ACTIVE active call(s) in progress"
+    exit 0
+  fi
+fi
+
+log "UPDATE requested: $CUR -> $WANT (flag=$FLAG mandatory_due=$DUE eligible=$ELIGIBLE)"
 cp "$COMPOSE" "$COMPOSE.rollback"
 
 report() { # <success-bool> <message>
