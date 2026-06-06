@@ -210,6 +210,36 @@ EOF
     cp "$SCRIPT_DIR/../migrate.sql" "$VAANEE_DIR/migrate.sql"
     cp "$SCRIPT_DIR/../migrations/"*.sql "$VAANEE_DIR/migrations/"
 
+    # HARDEN-D: seamless auto-updater — copy the script and install a systemd
+    # timer so the VM converges on whatever image tag central advertises
+    # (image_tag in the check-in), with health-check + rollback. Non-fatal.
+    if cp "$SCRIPT_DIR/vaanee-update.sh" "$VAANEE_DIR/vaanee-update.sh" 2>/dev/null; then
+        chmod +x "$VAANEE_DIR/vaanee-update.sh"
+        if command -v systemctl >/dev/null 2>&1; then
+            sudo tee /etc/systemd/system/vaanee-update.service >/dev/null << EOF
+[Unit]
+Description=Vaanee on-prem seamless auto-updater
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash $VAANEE_DIR/vaanee-update.sh
+EOF
+            sudo tee /etc/systemd/system/vaanee-update.timer >/dev/null << 'EOF'
+[Unit]
+Description=Run the Vaanee auto-updater periodically
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+[Install]
+WantedBy=timers.target
+EOF
+            sudo systemctl daemon-reload 2>/dev/null || true
+            sudo systemctl enable --now vaanee-update.timer >/dev/null 2>&1 || true
+            print_success "Auto-updater installed (systemd timer, every 15 min)"
+        fi
+    fi
+
     print_success "Files created at $VAANEE_DIR"
 }
 
