@@ -42,9 +42,24 @@ WANT=$(printf '%s' "$RESP" | grep -oE '"image_tag":"[^"]*"' | head -1 | sed 's/.
 
 # 2) What are we running now?
 CUR=$(grep -oE 'vaanee-webhook:[^"[:space:]]+' "$COMPOSE" | head -1 | sed 's/.*://')
-[ "$WANT" = "$CUR" ] && exit 0   # up to date — quiet no-op
+[ "$WANT" = "$CUR" ] && { docker exec vaanee-webhook rm -f /app/cache/update_requested 2>/dev/null || true; exit 0; }  # up to date
 
-log "UPDATE requested: $CUR -> $WANT"
+# A new tag is published. Apply when the CLIENT opts in (the dashboard "Update now"
+# button writes /app/cache/update_requested) OR the mandatory deadline has passed
+# (compulsory). Otherwise leave the dashboard notification up and wait.
+MAND=$(printf '%s' "$RESP" | grep -oE '"update_mandatory_after":"[^"]*"' | head -1 | sed 's/.*:"//;s/"$//')
+FLAG=0; docker exec vaanee-webhook test -f /app/cache/update_requested 2>/dev/null && FLAG=1
+DUE=0
+if [ -n "$MAND" ]; then
+  ME=$(date -d "$MAND" +%s 2>/dev/null || echo 0); NOW=$(date +%s)
+  [ "$ME" != "0" ] && [ "$NOW" -ge "$ME" ] && DUE=1
+fi
+if [ "$FLAG" != "1" ] && [ "$DUE" != "1" ]; then
+  log "update $CUR -> $WANT available; awaiting client opt-in or mandatory deadline ($MAND)"
+  exit 0
+fi
+
+log "UPDATE requested: $CUR -> $WANT (flag=$FLAG mandatory_due=$DUE)"
 cp "$COMPOSE" "$COMPOSE.rollback"
 
 report() { # <success-bool> <message>
@@ -69,6 +84,9 @@ RP=$(printf '%s' "$CREDS" | grep -oE '"password":"[^"]*"' | sed 's/.*:"//;s/"$//
 
 # 4) Point all three images at the new tag, pull, recreate.
 sed -i -E "s#(vaanee-(webhook|backend|frontend)):[^\"[:space:]]+#\1:$WANT#g" "$COMPOSE"
+# Keep the backend's advertised running tag in sync so the dashboard's update
+# notification clears once the new images are live.
+sed -i -E "s#(VAANEE_RUNNING_IMAGE_TAG=)[^\"[:space:]]+#\1$WANT#g" "$COMPOSE"
 dc pull >>"$LOG" 2>&1 || rollback "image pull failed"
 dc up -d >>"$LOG" 2>&1 || rollback "compose up failed"
 
@@ -82,4 +100,5 @@ done
 
 log "UPDATE OK -> $WANT"
 rm -f "$COMPOSE.rollback"
+docker exec vaanee-webhook rm -f /app/cache/update_requested 2>/dev/null || true
 report true "updated $CUR -> $WANT"

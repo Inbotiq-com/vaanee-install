@@ -34,6 +34,7 @@ JWT_SECRET=$JWT_SECRET
 ENCRYPTION_MASTER_KEY=$ENCRYPTION_MASTER_KEY
 ENCRYPTION_SECRET=$ENCRYPTION_SECRET
 INBOTIQ_API=$INBOTIQ_API
+VAANEE_RENEW_URL=${VAANEE_RENEW_URL:-}
 EOF
 
     cat > "$VAANEE_DIR/docker-compose.yml" << EOF
@@ -76,6 +77,9 @@ services:
       # Read the per-org "Assigned" provider keys (Google for KB embeddings) that
       # the checkin container writes to the shared cache (audit P4/B1).
       - VAANEE_TELEPHONY_CACHE=/app/cache/telephony_cache.json
+      # HARDEN-D: the tag this VM is currently running, so the dashboard can show
+      # an "update available" notification when central advertises a newer tag.
+      - VAANEE_RUNNING_IMAGE_TAG=${ONPREM_IMAGE_TAG}
     volumes:
       - vaanee_cache:/app/cache
     healthcheck:
