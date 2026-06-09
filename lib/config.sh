@@ -14,4 +14,4 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # one-off 'fix-login' tag, others on the moving 'qa' tag — audit BUILD-02).
 ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-08-onprem}"
 
-INBOTIQ_API="${INBOTIQ_API:-https://inbotiq-backend.azurewebsites.net/api}"
+INBOTIQ_API="${INBOTIQ_API:-https://inbotiq-backend-qa.azurewebsites.net/api}"
