@@ -35,6 +35,18 @@ ENCRYPTION_MASTER_KEY=$ENCRYPTION_MASTER_KEY
 ENCRYPTION_SECRET=$ENCRYPTION_SECRET
 INBOTIQ_API=$INBOTIQ_API
 VAANEE_RENEW_URL=${VAANEE_RENEW_URL:-}
+
+# ── VoxCPM self-hosted TTS (optional) ──
+# The webhook routes any "voxcpm:" voice to this server. Left DISABLED by
+# default: when off, voxcpm voice selections fall back gracefully to the
+# Cartesia default voice (no call breakage). To ACTIVATE you must:
+#   1) open the VoxCPM server NSG to this VM's egress IP (the server is
+#      firewalled per-client; from a fresh VM all ports time out), and
+#   2) set VOXCPM_API_KEY to the real key (kept out of git; lives in the
+#      central QA webapp app-settings), then flip VOXCPM_ENABLED=true.
+VOXCPM_ENABLED=${VOXCPM_ENABLED:-false}
+VOXCPM_ENDPOINT=${VOXCPM_ENDPOINT:-http://voxcpm-cin-02.centralindia.cloudapp.azure.com:8000}
+VOXCPM_API_KEY=${VOXCPM_API_KEY:-}
 EOF
 
     cat > "$VAANEE_DIR/docker-compose.yml" << EOF
