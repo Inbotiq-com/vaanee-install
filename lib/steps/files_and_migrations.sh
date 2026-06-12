@@ -36,17 +36,14 @@ ENCRYPTION_SECRET=$ENCRYPTION_SECRET
 INBOTIQ_API=$INBOTIQ_API
 VAANEE_RENEW_URL=${VAANEE_RENEW_URL:-}
 
-# ── VoxCPM self-hosted TTS (optional) ──
-# The webhook routes any "voxcpm:" voice to this server. Left DISABLED by
-# default: when off, voxcpm voice selections fall back gracefully to the
-# Cartesia default voice (no call breakage). To ACTIVATE you must:
-#   1) open the VoxCPM server NSG to this VM's egress IP (the server is
-#      firewalled per-client; from a fresh VM all ports time out), and
-#   2) set VOXCPM_API_KEY to the real key (kept out of git; lives in the
-#      central QA webapp app-settings), then flip VOXCPM_ENABLED=true.
-VOXCPM_ENABLED=${VOXCPM_ENABLED:-false}
-VOXCPM_ENDPOINT=${VOXCPM_ENDPOINT:-http://voxcpm-cin-02.centralindia.cloudapp.azure.com:8000}
-VOXCPM_API_KEY=${VOXCPM_API_KEY:-}
+# VoxCPM neural voices (default / describe / clone) need NO config here: the
+# licence check-in delivers the endpoint/key/TLS-fingerprint in telephony.providers
+# — exactly like the Cartesia/Sarvam keys — so no VoxCPM secret is baked on the box.
+# The VoxCPM server is reachable key-only (the shim requires the delivered key + TLS
+# pinning; no per-VM IP allow-list), and a voxcpm voice falls back to Cartesia if the
+# config isn't delivered. Source of truth = central VOXCPM_* app-settings +
+# inbotiq-backend routes/vaanee.js. (For dev you may still set VOXCPM_* in the env as
+# a fallback — the webhook reads cache-then-env via get_provider_key.)
 EOF
 
     cat > "$VAANEE_DIR/docker-compose.yml" << EOF
