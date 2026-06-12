@@ -14,4 +14,10 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # one-off 'fix-login' tag, others on the moving 'qa' tag — audit BUILD-02).
 ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-08-onprem}"
 
+# Pointed at the QA backend for now (2026-06-12): qa central carries the VoxCPM
+# check-in delivery (3250a17) + /tts support (bd493b5) and has VOXCPM_ENABLED +
+# endpoint/key/fingerprint set, so a fresh install gets neural voices out of the box
+# (the check-in delivers the config — no key baked on the box). VAANEE_MAIN_SERVER_URL
+# and the check-in + preview-proxy target all derive from this. Switch back to the prod
+# URL (https://inbotiq-backend.azurewebsites.net/api) once VoxCPM lands on prod/main.
 INBOTIQ_API="${INBOTIQ_API:-https://inbotiq-backend-qa.azurewebsites.net/api}"
