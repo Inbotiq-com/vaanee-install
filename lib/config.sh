@@ -12,10 +12,11 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # Single immutable image tag for all on-prem services so backend/webhook/frontend
 # always ship as one tested, reproducible set (was mismatched: backend on a
 # one-off 'fix-login' tag, others on the moving 'qa' tag — audit BUILD-02).
-# 2026-06-12-voxcpm: full build of all 3 from vaanee-onpremise HEAD — adds VoxCPM
-# neural voices (default/describe/clone) wired to check-in delivery + key-only cin-02.
-# Built + deployed + verified on vaanee-test-new (all modes, live-call + preview).
-ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-12-voxcpm}"
+# 2026-06-13-onprem: full build of all 3 from vaanee-onpremise HEAD — VoxCPM neural
+# voices + the concurrency leak fix (self-healing call_session staleness window +
+# janitor) + org-concurrency-aware Plivo campaigns + colleague's campaign-UI updates.
+# This is the tag published to the fleet via the central auto-update channel.
+ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-13-onprem}"
 
 # Pointed at the QA backend for now (2026-06-12): qa central carries the VoxCPM
 # check-in delivery (3250a17) + /tts support (bd493b5) and has VOXCPM_ENABLED +
