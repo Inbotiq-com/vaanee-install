@@ -9,8 +9,10 @@
 --
 -- Ingestion (inbotiq-backend utils/pgvectorKbClient.js) writes chunks here;
 -- retrieval (AI_Webhook db/cosmos_search.py, VAANEE_MODE pgvector path) reads them
--- with cosine distance. Embeddings are Gemini text-embedding-004 (768) using the
--- org's "Assigned" Google key delivered via check-in. Requires the `vector`
+-- with cosine distance. Embeddings are Gemini gemini-embedding-001 (768-dim,
+-- output_dimensionality=768) using the org's "Assigned" Google key delivered via
+-- check-in — ingestion (inbotiq-backend) and retrieval (AI_Webhook) stay in
+-- lock-step on this model+dims. Requires the `vector`
 -- extension (migration 001 + the installer pgvector preflight).
 CREATE TABLE IF NOT EXISTS knowledge_base_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
