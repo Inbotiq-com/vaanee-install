@@ -18,7 +18,12 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # neural voices + concurrency leak fix + org-concurrency-aware Plivo campaigns +
 # campaign-UI). This is the tag published to the fleet via the central
 # auto-update channel (check-in already serves it: eligible + mandatory 2026-06-17).
-ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-14-onprem}"
+# 2026-06-15-onprem: rebuild of all 3 from vaanee-onpremise HEAD — backend adds
+# the KB per-page vector purge + sitemap-delete cascade and KB refresh-flow rework;
+# webhook adds per-node intent extraction + function-response context storage (on
+# top of the VoxCPM voice_mode/describe/clone fixes); frontend unchanged from
+# 2026-06-14-onprem (retagged for a consistent fleet set).
+ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-15-onprem}"
 
 # Pointed at the QA backend for now (2026-06-12): qa central carries the VoxCPM
 # check-in delivery (3250a17) + /tts support (bd493b5) and has VOXCPM_ENABLED +

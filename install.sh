@@ -40,6 +40,12 @@ bootstrap_support_files() {
     fetch_if_missing "lib/steps/input_and_validation.sh"
     fetch_if_missing "lib/steps/files_and_migrations.sh"
     fetch_if_missing "lib/steps/runtime.sh"
+    # HARDEN-D: the seamless auto-updater script. WITHOUT this fetch, a
+    # `curl | bash` install never downloads it, the cp in files_and_migrations.sh
+    # silently fails, and the VM ships with NO working auto-updater (the systemd
+    # timer fires but exits 127 on a missing script). This was the root cause of
+    # on-prem VMs never converging on a newly-published image tag.
+    fetch_if_missing "lib/vaanee-update.sh"
     fetch_if_missing "migrate.sql"
 
     for migration_file in "${migration_files[@]}"; do

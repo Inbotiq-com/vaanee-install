@@ -109,6 +109,19 @@ wait_and_verify() {
         echo -e "  ${BOLD}Update:${NC}  cd $VAANEE_DIR && docker compose pull && docker compose up -d"
         echo -e "  ${BOLD}Stop:${NC}    cd $VAANEE_DIR && docker compose down"
         echo ""
+
+        # HARDEN-D: confirm the seamless auto-updater actually armed. The cp +
+        # systemd install is non-fatal, so a missing updater would otherwise pass
+        # silently — and the VM would never converge on newly-published image tags.
+        if command -v systemctl >/dev/null 2>&1; then
+            if [ -f "$VAANEE_DIR/vaanee-update.sh" ] && systemctl is-active --quiet vaanee-update.timer; then
+                echo -e "  ${GREEN}Auto-update:${NC} armed (systemd timer active, every 15 min)"
+            else
+                print_warn "Auto-updater NOT armed — this VM will not auto-update."
+                echo "    Check: ls $VAANEE_DIR/vaanee-update.sh ; systemctl status vaanee-update.timer"
+            fi
+            echo ""
+        fi
         echo -e "  ${BOLD}Support:${NC} support@inbotiq.com"
         echo ""
     else

@@ -226,7 +226,10 @@ EOF
     # HARDEN-D: seamless auto-updater — copy the script and install a systemd
     # timer so the VM converges on whatever image tag central advertises
     # (image_tag in the check-in), with health-check + rollback. Non-fatal.
-    if cp "$SCRIPT_DIR/vaanee-update.sh" "$VAANEE_DIR/vaanee-update.sh" 2>/dev/null; then
+    if [ ! -f "$SCRIPT_DIR/vaanee-update.sh" ]; then
+        print_warn "Auto-updater source not found at $SCRIPT_DIR/vaanee-update.sh — the VM will NOT auto-update. (Ensure install.sh fetches lib/vaanee-update.sh.)"
+    fi
+    if cp "$SCRIPT_DIR/vaanee-update.sh" "$VAANEE_DIR/vaanee-update.sh"; then
         chmod +x "$VAANEE_DIR/vaanee-update.sh"
         if command -v systemctl >/dev/null 2>&1; then
             sudo tee /etc/systemd/system/vaanee-update.service >/dev/null << EOF
