@@ -23,6 +23,12 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # webhook adds per-node intent extraction + function-response context storage (on
 # top of the VoxCPM voice_mode/describe/clone fixes); frontend unchanged from
 # 2026-06-14-onprem (retagged for a consistent fleet set).
+# NOTE (2026-06-17): this is now only a FALLBACK. validate_api_key() adopts the
+# central-published fleet image_tag from the check-in response when central is
+# reachable, so a normal install ignores this value. It is used only for offline /
+# unreachable-central installs, or if central returns no image_tag. You no longer
+# need to bump it every release — publish the tag to central (vaanee_fleet_config /
+# admin "Publish Update") instead, which covers both new installs and existing VMs.
 ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-15-onprem}"
 
 # Pointed at the QA backend for now (2026-06-12): qa central carries the VoxCPM

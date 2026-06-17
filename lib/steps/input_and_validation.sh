@@ -109,12 +109,21 @@ collect_inputs() {
 validate_api_key() {
     print_step "Validating API key"
 
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    # Capture BOTH the response body and the HTTP status. The check-in body
+    # carries the central-published fleet image_tag (HARDEN-D) — the single
+    # source of truth for the build this VM should run. We adopt it below so a
+    # new install matches the fleet (and existing VMs auto-converge), instead of
+    # pinning whatever ONPREM_IMAGE_TAG was hardcoded in config.sh at release time.
+    # curl's -w "\n..." appends the status on its own line; on total failure the
+    # `|| echo 000` keeps the same shape (empty body, status 000).
+    CHECKIN_RESP=$(curl -s -w "\n%{http_code}" \
         -H "Authorization: Bearer $VAANEE_API_KEY" \
         -H "Content-Type: application/json" \
         -d '{"instance_id":"installer","version":"1.0.0"}' \
         -X POST "$INBOTIQ_API/vaanee/check-in" \
         --max-time 10 2>/dev/null || echo "000")
+    HTTP_STATUS=$(printf '%s\n' "$CHECKIN_RESP" | tail -n1)
+    CHECKIN_BODY=$(printf '%s\n' "$CHECKIN_RESP" | sed '$d')
 
     if [ "$HTTP_STATUS" = "000" ]; then
         print_warn "Could not reach Inbotiq platform to validate key. Continuing anyway..."
@@ -129,6 +138,23 @@ validate_api_key() {
         exit 1
     else
         print_success "API key validated"
+    fi
+
+    # Single source of truth: prefer the central fleet image_tag from the check-in
+    # response. ONPREM_IMAGE_TAG (config.sh) remains the fallback for offline or
+    # unreachable-central installs, or if central returns no tag. Runs before
+    # write_files, so the compose template picks up the adopted tag.
+    CENTRAL_TAG=$(printf '%s' "$CHECKIN_BODY" \
+        | grep -oE '"image_tag":"[^"]*"' | head -1 | sed 's/.*:"//;s/"$//')
+    if [ -n "$CENTRAL_TAG" ]; then
+        if [ "$CENTRAL_TAG" != "${ONPREM_IMAGE_TAG:-}" ]; then
+            print_success "Using central fleet image tag: $CENTRAL_TAG (fallback was ${ONPREM_IMAGE_TAG:-unset})"
+        else
+            print_success "Central fleet image tag confirmed: $CENTRAL_TAG"
+        fi
+        ONPREM_IMAGE_TAG="$CENTRAL_TAG"
+    else
+        print_warn "Central returned no image_tag; using fallback ONPREM_IMAGE_TAG=${ONPREM_IMAGE_TAG:-unset}"
     fi
 }
 
