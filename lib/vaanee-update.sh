@@ -48,7 +48,7 @@ WANT=$(printf '%s' "$RESP" | grep -oE '"image_tag":"[^"]*"' | head -1 | sed 's/.
 [ -z "$WANT" ] && { log "no image_tag in check-in response; nothing to do"; exit 0; }
 
 # 2) What are we running now?
-CUR=$(grep -oE 'vaanee-webhook:[^"[:space:]]+' "$COMPOSE" | head -1 | sed 's/.*://')
+CUR=$(grep -oE 'inbotiqregistry[^"[:space:]]*vaanee-webhook:[^"[:space:]]+' "$COMPOSE" | head -1 | sed 's/.*://')
 [ "$WANT" = "$CUR" ] && { docker exec vaanee-webhook rm -f /app/cache/update_requested 2>/dev/null || true; exit 0; }  # up to date
 
 # A new tag is published. Apply when the CLIENT opts in (the dashboard "Update now"
@@ -119,7 +119,7 @@ RP=$(printf '%s' "$CREDS" | grep -oE '"password":"[^"]*"' | sed 's/.*:"//;s/"$//
 [ -n "$RG" ] && [ -n "$RP" ] && printf '%s' "$RP" | docker login "$RG" -u "${RU:-vaanee}" --password-stdin >>"$LOG" 2>&1
 
 # 4) Point all three images at the new tag, pull, recreate.
-sed -i -E "s#(vaanee-(webhook|backend|frontend)):[^\"[:space:]]+#\1:$WANT#g" "$COMPOSE"
+sed -i -E "s#(inbotiqregistry\.azurecr\.io/vaanee-(webhook|backend|frontend)):[^\"[:space:]]+#\1:$WANT#g" "$COMPOSE"
 # Keep the backend's advertised running tag in sync (in compose AND .env, wherever
 # it lives) so the dashboard's update notification clears once the new images are live.
 sed -i -E "s#(VAANEE_RUNNING_IMAGE_TAG=)[^\"[:space:]]+#\1$WANT#g" "$COMPOSE"
