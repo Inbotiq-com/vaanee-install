@@ -103,10 +103,30 @@ report() { # <success-bool> <message>
     -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
     -d "{\"from_tag\":\"$CUR\",\"to_tag\":\"$WANT\",\"success\":$1,\"message\":\"$2\"}" >/dev/null 2>&1 || true
 }
+# Persist a LOCAL failure marker on the shared cache volume so the dashboard can show a
+# red "update failed / try again" banner (reload-proof, server-driven). Increments a
+# count across consecutive failures; cleared on the next successful update. Message is
+# passed via env to avoid any shell-quoting issues.
+mark_failure() { # <message>
+  docker exec -e FAILMSG="$1" -e FAILTAG="$WANT" vaanee-webhook python3 -c "
+import json,os,time
+p='/app/cache/update_failed.json'
+try:
+    d=json.load(open(p))
+except Exception:
+    d={}
+d['count']=int(d.get('count',0))+1
+d['message']=os.environ.get('FAILMSG','update failed')
+d['to_tag']=os.environ.get('FAILTAG','')
+d['at']=int(time.time())
+json.dump(d, open(p,'w'))
+" 2>/dev/null || true
+}
 rollback() {
   log "ROLLBACK -> $CUR"
   cp "$COMPOSE.rollback" "$COMPOSE"
   dc pull >>"$LOG" 2>&1; dc up -d >>"$LOG" 2>&1
+  mark_failure "$1"
   report false "$1; rolled back to $CUR"
   exit 1
 }
@@ -138,4 +158,5 @@ done
 log "UPDATE OK -> $WANT"
 rm -f "$COMPOSE.rollback"
 docker exec vaanee-webhook rm -f /app/cache/update_requested 2>/dev/null || true
+docker exec vaanee-webhook rm -f /app/cache/update_failed.json 2>/dev/null || true   # clear any prior failure marker
 report true "updated $CUR -> $WANT"
