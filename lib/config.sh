@@ -29,7 +29,11 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # unreachable-central installs, or if central returns no image_tag. You no longer
 # need to bump it every release — publish the tag to central (vaanee_fleet_config /
 # admin "Publish Update") instead, which covers both new installs and existing VMs.
-ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-15-onprem}"
+# 2026-06-25: bumped the fallback to 2026-06-25-onprem so even an OFFLINE / no-image_tag
+# install starts with the flow first-node greeting fix (stateful/flow agents open the
+# call via the flow's first node, not the static welcome_message) instead of the old
+# 2026-06-15-onprem image; online installs already get this from central.
+ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-25-onprem}"
 
 # Pointed at the QA backend for now (2026-06-12): qa central carries the VoxCPM
 # check-in delivery (3250a17) + /tts support (bd493b5) and has VOXCPM_ENABLED +
