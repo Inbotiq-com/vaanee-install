@@ -7,7 +7,7 @@ set -e
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RAW_BASE_URL="${RAW_BASE_URL:-https://raw.githubusercontent.com/Inbotiq-com/vaanee-install/main}"
+RAW_BASE_URL="${RAW_BASE_URL:-https://raw.githubusercontent.com/Inbotiq-com/vaanee-install/qa}"
 
 bootstrap_support_files() {
     local migration_files=(
