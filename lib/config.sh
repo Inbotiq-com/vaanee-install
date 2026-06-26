@@ -35,10 +35,12 @@ REGISTRY_PASS="${REGISTRY_PASS:-}"
 # 2026-06-15-onprem image; online installs already get this from central.
 ONPREM_IMAGE_TAG="${ONPREM_IMAGE_TAG:-2026-06-25-onprem}"
 
-# Pointed at the QA backend for now (2026-06-12): qa central carries the VoxCPM
-# check-in delivery (3250a17) + /tts support (bd493b5) and has VOXCPM_ENABLED +
-# endpoint/key/fingerprint set, so a fresh install gets neural voices out of the box
-# (the check-in delivers the config — no key baked on the box). VAANEE_MAIN_SERVER_URL
-# and the check-in + preview-proxy target all derive from this. Switch back to the prod
-# URL (https://inbotiq-backend.azurewebsites.net/api) once VoxCPM lands on prod/main.
-INBOTIQ_API="${INBOTIQ_API:-https://inbotiq-backend-qa.azurewebsites.net/api}"
+# PRODUCTION central (2026-06-26): main branch serves prod-created VMs. This is the
+# live prod backend App Service `Backend` in RG `Inbotiq`. VAANEE_MAIN_SERVER_URL and
+# the check-in + preview-proxy target all derive from this. The fleet image tag is NOT
+# baked here — validate_api_key() adopts the tag prod's vaanee_fleet_config publishes at
+# check-in (ONPREM_IMAGE_TAG is only the offline fallback).
+# NOTE: the old `inbotiq-backend.azurewebsites.net` host (named in this comment pre-split)
+# has stale/dead DNS — do NOT use it. The QA installer lives on the `qa` branch and keeps
+# INBOTIQ_API = inbotiq-backend-qa for QA-created VMs.
+INBOTIQ_API="${INBOTIQ_API:-https://backend-g3cubwe7fuf7bze7.centralindia-01.azurewebsites.net/api}"
